@@ -1,0 +1,6 @@
+node_modules/
+.env
+ai-backend/.env
+tmp/
+.codex-attachments/
+*.log
