@@ -6,13 +6,17 @@
   "scripts": {
     "start": "node ai-backend/server.js",
     "dev": "node --watch ai-backend/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "verify:db": "node scripts/comprobar-agente-bd.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "mysql2": "^3.24.6",
     "openai": "^6.9.0"
   }
 }

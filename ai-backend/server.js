@@ -3,12 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const { OpenAI } = require('openai');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
+const { createSakila } = require('./sakila');
+const { answerWithSakila } = require('./agent');
 
 const MAX_MESSAGE = 8000;
 const MAX_HISTORY = 40;
 const SYSTEM_PROMPT = 'Eres un asistente útil, claro y amable. Responde en español salvo que el usuario solicite otro idioma. Conserva el contexto de la conversación y reconoce cuando no sabes algo.';
 
-function createApp({ apiKey = process.env.OPENROUTER_API_KEY, model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini', client } = {}) {
+function createApp({ apiKey = process.env.OPENROUTER_API_KEY, model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini', client, database = process.env.DB_ENABLED === 'true' ? createSakila() : null } = {}) {
   const app = express();
   const configured = typeof apiKey === 'string' && apiKey.trim().length > 0;
   const provider = client || (configured ? new OpenAI({
@@ -48,16 +50,18 @@ function createApp({ apiKey = process.env.OPENROUTER_API_KEY, model = process.en
       return res.status(503).json({ error: 'Falta configurar OPENROUTER_API_KEY en ai-backend/.env. Guarda tu clave y reinicia el servidor.' });
     }
     try {
-      const completion = await provider.chat.completions.create({
-        model,
-        messages: [
+      const messages = [
           { role: 'system', content: SYSTEM_PROMPT },
           ...history.map(({ role, content }) => ({ role, content })),
           { role: 'user', content: message.trim() },
-        ],
-        max_tokens: 1500,
-      });
-      const reply = completion.choices?.[0]?.message?.content;
+        ];
+      let reply;
+      if (database) {
+        reply = await answerWithSakila(provider, model, messages, database);
+      } else {
+        const completion = await provider.chat.completions.create({ model, messages, max_tokens: 1500 });
+        reply = completion.choices?.[0]?.message?.content;
+      }
       if (typeof reply !== 'string' || !reply.trim()) {
         return res.status(502).json({ error: 'El proveedor no devolvió una respuesta de texto. Intenta de nuevo.' });
       }
